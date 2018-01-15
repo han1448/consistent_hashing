@@ -10,8 +10,6 @@ public class Main {
         consistentHash.add(new Node("127.0.0.2", "8080"));
         consistentHash.add(new Node("127.0.0.3", "8080"));
 
-
-
         Node node = consistentHash.getNode("Hi");
         log.debug("Node is {}", node.ip);
 
