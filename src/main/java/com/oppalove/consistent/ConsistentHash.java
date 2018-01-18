@@ -12,29 +12,37 @@ public class ConsistentHash {
     private static final int MAX_NODE = 10000;
     private static final int DEFAULT_REPLICA = 1;
     private int virtualNodeCount;
+    private int maxNodeCount;
     private int currentNodeCount;
     private NavigableMap<Integer, Node> hashRing = new TreeMap<>();
     private Random random = new Random();
 
     public ConsistentHash() {
         this.virtualNodeCount = DEFAULT_REPLICA;
+        this.maxNodeCount = MAX_NODE;
     }
 
     public ConsistentHash(int virtualNodeCount) {
         this.virtualNodeCount = virtualNodeCount;
+        this.maxNodeCount = MAX_NODE;
+    }
+
+    public ConsistentHash(int virtualNodeCount, int maxNode) {
+        this.virtualNodeCount = virtualNodeCount;
+        this.maxNodeCount = maxNode;
     }
 
     public void add(Node node) {
         currentNodeCount++;
 
-        if ((currentNodeCount * virtualNodeCount) >= MAX_NODE * 0.9) {
+        if ((currentNodeCount * virtualNodeCount) >= maxNodeCount * 0.9) {
             throw new IllegalStateException("Too much nodes.");
         }
 
         for (int r = 0; r < virtualNodeCount; r++) {
-            int nodeIdx = random.nextInt(MAX_NODE);
+            int nodeIdx = random.nextInt(maxNodeCount);
             while (hashRing.containsKey(nodeIdx)) {
-                nodeIdx = random.nextInt(MAX_NODE);
+                nodeIdx = random.nextInt(maxNodeCount);
             }
             log.debug("adding a node({}) -> {}", node.ip, nodeIdx);
             hashRing.put(nodeIdx, node);
@@ -58,7 +66,7 @@ public class ConsistentHash {
     }
 
     public Node getNode(String key) {
-        int hashKey = key.hashCode() % MAX_NODE;
+        int hashKey = key.hashCode() % maxNodeCount;
         log.debug("getNode() -> {}", hashKey);
         if (hashRing.ceilingEntry(hashKey) == null)
             return hashRing.firstEntry().getValue();
