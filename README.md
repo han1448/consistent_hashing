@@ -26,3 +26,6 @@ consistentHash.remove(node);
 ```java
 consistentHash.getNode("Hello");
 ```
+
+#### See basic concept of Consistent Hash
+[Consistent Hash](http://oppalove.com/2018/04/08/consistent-hash/)
