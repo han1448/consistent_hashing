@@ -2,27 +2,23 @@ package com.oppalove.consistent;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Map;
 import java.util.NavigableMap;
-import java.util.Random;
+import java.util.Optional;
 import java.util.TreeMap;
 
 @Slf4j
-public class ConsistentHash<T> {
-    private static final int MAX_NODE = 10000;
+public class ConsistentHash {
+    private static final int MAX_NODE = Integer.MAX_VALUE;
     private static final int DEFAULT_REPLICA = 1;
+    private final long tRange = (long) Integer.MAX_VALUE + Math.abs((long) Integer.MIN_VALUE);
     private int virtualNodeCount;
-    private int maxNodeCount;
-    private int currentNodeCount;
-    private NavigableMap<Integer, T> hashRing = new TreeMap<>();
-    private Random random = new Random();
+    private NavigableMap<Long, Node> hashRing = new TreeMap<>();
 
     /**
      * Default constructor.
      */
     public ConsistentHash() {
         this.virtualNodeCount = DEFAULT_REPLICA;
-        this.maxNodeCount = MAX_NODE;
     }
 
     /**
@@ -33,18 +29,6 @@ public class ConsistentHash<T> {
      */
     public ConsistentHash(int virtualNodeCount) {
         this.virtualNodeCount = virtualNodeCount;
-        this.maxNodeCount = MAX_NODE;
-    }
-
-    /**
-     * Constructor that can be set virtualNodeCount and maxNode.
-     *
-     * @param virtualNodeCount the number of virtual node per each node.
-     * @param maxNode          the number of maximum node including virtual node.
-     */
-    public ConsistentHash(int virtualNodeCount, int maxNode) {
-        this.virtualNodeCount = virtualNodeCount;
-        this.maxNodeCount = maxNode;
     }
 
     /**
@@ -52,21 +36,26 @@ public class ConsistentHash<T> {
      *
      * @param node T node object.
      */
-    public void add(T node) {
-        currentNodeCount++;
-
-        if ((currentNodeCount * virtualNodeCount) >= maxNodeCount * 0.9) {
-            throw new IllegalStateException("Too much nodes.");
+    public synchronized void add(Node node) {
+        for (int i = 0; i < virtualNodeCount; i++) {
+            addNode(node, i);
         }
+    }
 
-        for (int r = 0; r < virtualNodeCount; r++) {
-            int nodeIdx = random.nextInt(maxNodeCount);
-            while (hashRing.containsKey(nodeIdx)) {
-                nodeIdx = random.nextInt(maxNodeCount);
-            }
-            log.debug("adding a node({}) -> {}", node.toString(), nodeIdx);
-            hashRing.put(nodeIdx, node);
-        }
+    private void addNode(Node node, int i) {
+        long idx = getIdx(node, i);
+        log.debug("Node added : {}({})", node.getIp(), idx);
+        hashRing.put(idx, node);
+    }
+
+    private long getIdx(Node node, int i) {
+        long sha1Hash = Math.abs(
+                SHA1.generate(
+                        SHA1.generate(String.valueOf((node.getName() + i).hashCode())) +
+                                SHA1.generate(String.valueOf(node.getIp().hashCode())) +
+                                SHA1.generate(String.valueOf(node.getPort().hashCode())))
+                        .hashCode());
+        return sha1Hash * MAX_NODE / tRange;
     }
 
     /**
@@ -74,19 +63,11 @@ public class ConsistentHash<T> {
      *
      * @param node T node object.
      */
-    public void remove(T node) {
-
-        final Integer[] keyNode = new Integer[virtualNodeCount];
-        int idx = 0;
-        for (Map.Entry<Integer, T> entry : hashRing.entrySet()) {
-            if (entry.getValue().equals(node)) {
-                log.debug("removing a node({}) -> {}", node.toString(), entry.getKey());
-                keyNode[idx++] = entry.getKey();
-            }
-        }
-
-        for (int i = 0; i < keyNode.length; i++) {
-            hashRing.remove(keyNode[i]);
+    public synchronized void remove(Node node) {
+        for (int i = 0; i < virtualNodeCount; i++) {
+            long idx = getIdx(node, i);
+            Node remNode = hashRing.remove(idx);
+            log.debug("{}({}) node removed.", remNode.getName(), idx);
         }
     }
 
@@ -94,13 +75,17 @@ public class ConsistentHash<T> {
      * Get node from the given key.
      *
      * @param key key data.
-     * @return T node.
+     * @return Node node.
      */
-    public T getNode(String key) {
-        int hashKey = key.hashCode() % maxNodeCount;
+    public Node getNode(String key) throws NodeNotFoundException {
+        long hashKey = Math.abs((long) (key.hashCode() % MAX_NODE));
         log.debug("getNode() -> {}", hashKey);
         if (hashRing.ceilingEntry(hashKey) == null)
-            return hashRing.firstEntry().getValue();
-        return hashRing.ceilingEntry(hashKey).getValue();
+            return Optional.ofNullable(hashRing.firstEntry())
+                    .orElseThrow(NodeNotFoundException::nodeNotFoundException)
+                    .getValue();
+        return Optional.ofNullable(hashRing.ceilingEntry(hashKey))
+                .orElseThrow(NodeNotFoundException::nodeNotFoundException)
+                .getValue();
     }
 }
