@@ -13,12 +13,12 @@ ConsistentHash consistentHash = new ConsistentHash(100);
 
 #### Add node
 ```java
-consistentHash.add(new Node("127.0.0.1", "8080"));
+consistentHash.add(new Node("127.0.0.1", "8080", "MyNode"));
 ```
 
 #### Remove node
 ```java
-Node node = new Node("127.0.0.4", "8080");
+Node node = new Node("127.0.0.4", "8080", "MyNode");
 consistentHash.remove(node);
 ```
 
