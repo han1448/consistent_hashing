@@ -28,4 +28,4 @@ consistentHash.getNode("Hello");
 ```
 
 #### See basic concept of Consistent Hash
-[Consistent Hash](http://oppalove.com/2018/04/08/consistent-hash/)
+[Consistent Hash](https://oppalove.com/2018/08/04/Consistent-hash.html)
